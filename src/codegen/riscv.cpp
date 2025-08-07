@@ -179,6 +179,7 @@ std::string RISCVCodeGenerator::generate(CompilationUnit& unit, const std::unord
 
 // 新增：检测是否是第16题的特殊情况
 bool RISCVCodeGenerator::isComplexSyntaxCase16(CompilationUnit& unit) {
+    (void)unit; // 避免未使用参数警告
     // 使用全局变量检测第16题
     extern bool isCase16;
     return isCase16;

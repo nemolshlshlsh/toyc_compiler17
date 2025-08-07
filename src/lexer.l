@@ -32,11 +32,22 @@ NEWLINE     \n
 
 "/*"            { 
     int c;
-    while ((c = yyinput()) != 0) {
+    int depth = 1;  // 处理嵌套注释
+    while ((c = yyinput()) != 0 && depth > 0) {
         if (c == '*') {
             c = yyinput();
-            if (c == '/') break;
-            
+            if (c == '/') {
+                depth--;
+            } else if (c != 0) {
+                unput(c);  // 将字符放回输入流
+            }
+        } else if (c == '/') {
+            c = yyinput();
+            if (c == '*') {
+                depth++;
+            } else if (c != 0) {
+                unput(c);  // 将字符放回输入流
+            }
         }
         if (c == EOF) {
             fprintf(stderr, "Unterminated comment at line %d\n", yylineno);
