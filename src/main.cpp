@@ -13,9 +13,7 @@ extern int yyparse();
 extern std::unique_ptr<CompilationUnit> root;
 extern int yylineno;
 
-// 第16题检测全局变量
-bool isCase16 = false;
-bool firstLineChecked = false;
+
 
 void printUsage(const char* programName) {
 	std::cerr << "ToyC Compiler v1.0\n"

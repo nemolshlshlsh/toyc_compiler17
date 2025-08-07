@@ -158,13 +158,9 @@ std::string RISCVCodeGenerator::generate(CompilationUnit& unit, const std::unord
     functions = funcTable;
     stackOffset = 0;
     labelCounter = 0;
-    isComplexSyntaxCase16Flag = false; // 重置第16题标志
+
     
-    // 检查是否是第16题的特殊情况
-    if (isComplexSyntaxCase16(unit)) {
-        isComplexSyntaxCase16Flag = true;
-        fixComplexSyntaxCase16(unit);
-    }
+
     
     // 生成数据段
     emit(".data");
@@ -177,116 +173,7 @@ std::string RISCVCodeGenerator::generate(CompilationUnit& unit, const std::unord
     return output;
 }
 
-// 新增：检测是否是第16题的特殊情况
-bool RISCVCodeGenerator::isComplexSyntaxCase16(CompilationUnit& unit) {
-    (void)unit; // 避免未使用参数警告
-    // 使用全局变量检测第16题
-    extern bool isCase16;
-    return isCase16;
-}
 
-// 新增：修正第16题的特殊情况
-void RISCVCodeGenerator::fixComplexSyntaxCase16(CompilationUnit& unit) {
-    (void)unit; // 避免未使用参数警告
-    
-    // 第16题的问题在于：
-    // z = factorial(x) //*division*/factorial(y);
-    // 被错误解析为：z = factorial(x);
-    
-    // 正确的应该是：z = factorial(x) / factorial(y);
-    
-    // 由于AST已经生成，我们无法直接修改AST
-    // 但我们可以通过修改代码生成逻辑来修正这个问题
-    
-    // 具体实现：在生成main函数的代码时，检查是否有特定的模式
-    // 如果发现z被赋值为factorial(x)，但没有后续的除法操作
-    // 那么我们可以推断这应该是第16题的情况
-    
-    // 标记这是一个特殊情况，在代码生成过程中进行特殊处理
-    // 当生成main函数时，如果检测到z被赋值为factorial(x)
-    // 我们就生成正确的汇编代码：z = factorial(x) / factorial(y)
-    
-    // 这里我们设置一个标志，在后续的代码生成中使用
-    // 具体的修正逻辑将在visit(FunctionDefinition& node)中实现
-}
-
-// 新增：递归处理语句，寻找第16题的特殊情况
-bool RISCVCodeGenerator::processStatementForCase16(Statement* stmt, bool& foundZAssignment) {
-    if (!stmt) return false;
-    
-    // 检查赋值语句
-    if (auto assignStmt = dynamic_cast<AssignmentStatement*>(stmt)) {
-        if (assignStmt->variable == "z") {
-            // 检查赋值语句的值是否是factorial函数调用
-            if (auto funcCall = dynamic_cast<FunctionCall*>(assignStmt->value.get())) {
-                
-                if (funcCall->functionName == "factorial") {
-                    // 生成 factorial(x) 的代码
-                    funcCall->accept(*this);
-                    
-                    // 生成 factorial(y) 的代码
-                    auto it = localVariables.find("y");
-                    if (it != localVariables.end()) {
-                        emit("lw a0, " + std::to_string(it->second) + "(fp)");
-                    }
-                    
-                    // 调用 factorial(y)
-                    emit("call factorial");
-                    emit("addi sp, sp, -4");
-                    emit("sw a0, 0(sp)");
-                    
-                    // 执行除法：factorial(x) / factorial(y)
-                    emit("lw t1, 0(sp)"); // factorial(y) 的结果
-                    emit("addi sp, sp, 4");
-                    emit("lw t0, 0(sp)"); // factorial(x) 的结果
-                    emit("div t0, t0, t1"); // 执行除法
-                    emit("sw t0, 0(sp)"); // 保存结果
-                    
-                    // 将结果存储到变量 z
-                    auto zIt = localVariables.find("z");
-                    if (zIt != localVariables.end()) {
-                        emit("lw t0, 0(sp)");
-                        emit("addi sp, sp, 4");
-                        emit("sw t0, " + std::to_string(zIt->second) + "(fp)");
-                    }
-                    
-                    foundZAssignment = true;
-                    return true; // 表示已经处理了这个语句
-                }
-            }
-        }
-    }
-    
-    // 递归检查if语句
-    if (auto ifStmt = dynamic_cast<IfStatement*>(stmt)) {
-        // 检查then分支
-        if (processStatementForCase16(ifStmt->thenStatement.get(), foundZAssignment)) {
-            return true;
-        }
-        // 检查else分支
-        if (ifStmt->elseStatement && processStatementForCase16(ifStmt->elseStatement.get(), foundZAssignment)) {
-            return true;
-        }
-    }
-    
-    // 递归检查while语句
-    if (auto whileStmt = dynamic_cast<WhileStatement*>(stmt)) {
-        if (processStatementForCase16(whileStmt->body.get(), foundZAssignment)) {
-            return true;
-        }
-    }
-    
-    // 递归检查块语句
-    if (auto blockStmt = dynamic_cast<Block*>(stmt)) {
-        for (const auto& blockStmt : blockStmt->statements) {
-            if (processStatementForCase16(blockStmt.get(), foundZAssignment)) {
-                return true;
-            }
-        }
-    }
-    
-    return false; // 没有找到需要特殊处理的语句
-}
 
 void RISCVCodeGenerator::emit(const std::string& instruction) {
     output += instruction + "\n";
@@ -598,36 +485,8 @@ void RISCVCodeGenerator::visit(FunctionDefinition& node) {
         }
     }
     
-    // 第16题特殊处理：如果是main函数且检测到第16题的情况
-    if (isComplexSyntaxCase16Flag && node.name == "main") {
-        std::cerr << "[DEBUG] Entering case 16 special handling for main function" << std::endl;
-        
-        // 特殊处理第16题的情况
-        // 生成正确的代码：z = factorial(x) / factorial(y);
-        
-        // 首先生成变量声明
-        for (const auto& stmt : node.body->statements) {
-            if (auto varDecl = dynamic_cast<VariableDeclaration*>(stmt.get())) {
-                varDecl->accept(*this);
-            }
-        }
-        
-        // 然后递归处理所有语句，寻找 z = factorial(x) 的情况
-        bool foundZAssignment = false;
-        for (const auto& stmt : node.body->statements) {
-            if (processStatementForCase16(stmt.get(), foundZAssignment)) {
-                // 如果找到了并处理了 z = factorial(x) 的情况，跳过正常处理
-                continue;
-            }
-            
-            // 正常的语句处理
-            stmt->accept(*this);
-        }
-    } else {
-        std::cerr << "[DEBUG] Using normal function handling for: " << node.name << std::endl;
-        // 正常的函数体处理
-        node.body->accept(*this);
-    }
+    // 正常的函数体处理
+    node.body->accept(*this);
     
     // 如果函数没有显式的return语句，添加隐式返回
     // 对于void函数，不需要设置返回值

@@ -6,10 +6,6 @@
 
 extern int yylineno;
 extern YYSTYPE yylval;
-
-// 全局变量：检测第16题的特殊情况
-extern bool isCase16;
-extern bool firstLineChecked;
 %}
 
 %option noyywrap
@@ -32,22 +28,10 @@ NEWLINE     \n
 
 "/*"            { 
     int c;
-    int depth = 1;  // 处理嵌套注释
-    while ((c = yyinput()) != 0 && depth > 0) {
+    while ((c = yyinput()) != 0) {
         if (c == '*') {
             c = yyinput();
-            if (c == '/') {
-                depth--;
-            } else if (c != 0) {
-                unput(c);  // 将字符放回输入流
-            }
-        } else if (c == '/') {
-            c = yyinput();
-            if (c == '*') {
-                depth++;
-            } else if (c != 0) {
-                unput(c);  // 将字符放回输入流
-            }
+            if (c == '/') break;
         }
         if (c == EOF) {
             fprintf(stderr, "Unterminated comment at line %d\n", yylineno);
@@ -61,25 +45,7 @@ NEWLINE     \n
 
 
 
-"int"           { 
-    // 检测第16题：第一行是 "int/*Multi-line comment with /*"
-    if (!firstLineChecked && yylineno == 1) {
-        // 检查下一个字符是否是 '/'，但不破坏词法分析流程
-        int nextChar = yyinput();
-        if (nextChar == '/') {
-            int nextNextChar = yyinput();
-            if (nextNextChar == '*') {
-                // 找到了 "int/*"，这是第16题的特征
-                isCase16 = true;
-            }
-            // 将读取的字符放回输入流
-            unput(nextNextChar);
-        }
-        unput(nextChar);
-        firstLineChecked = true;
-    }
-    return INT; 
-}
+"int"           { return INT; }
 "void"          { return VOID; }
 "if"            { return IF; }
 "else"          { return ELSE; }

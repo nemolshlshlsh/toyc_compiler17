@@ -20,8 +20,7 @@ private:
     std::unordered_map<std::string, int> constantValues; // 常量传播
     std::vector<std::string> deadCode; // 死代码消除
     
-    // 第16题特殊情况处理
-    bool isComplexSyntaxCase16Flag; // 新增：标记是否是第16题
+
     
     // 标签栈管理
     std::stack<std::string> breakLabels;    // break 标签栈
@@ -31,7 +30,7 @@ private:
     std::stack<std::unordered_map<std::string, int>> scopeStack; // 作用域栈
     
 public:
-    RISCVCodeGenerator() : stackOffset(0), labelCounter(0), optimizationsEnabled(false), isComplexSyntaxCase16Flag(false) {}
+    RISCVCodeGenerator() : stackOffset(0), labelCounter(0), optimizationsEnabled(false) {}
     
     std::string generate(CompilationUnit& unit, const std::unordered_map<std::string, FunctionInfo>& funcTable);
     
@@ -69,8 +68,5 @@ private:
     bool isConstantExpression(Expression* expr);
     int evaluateConstantExpression(Expression* expr);
     
-    // 新增：处理第16题特殊情况的函数
-    bool isComplexSyntaxCase16(CompilationUnit& unit);
-    void fixComplexSyntaxCase16(CompilationUnit& unit);
-    bool processStatementForCase16(Statement* stmt, bool& foundZAssignment);
+
 };
